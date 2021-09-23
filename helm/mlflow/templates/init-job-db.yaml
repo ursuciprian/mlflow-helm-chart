@@ -1,0 +1,61 @@
+{{- if .Values.database.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "mlflow.name" . }}-init-db
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/heok-delete-policy": before-hook-creation,hook-succeeded
+    "linkerd.io/inject": disabled
+spec:
+  template:
+    metadata:
+      name: {{ template "mlflow.name" . }}-init-db
+    spec:
+      serviceAccountName: {{ include "mlflow.serviceAccountName" . }}
+      containers:
+      - name: {{ template "mlflow.name" . }}-init-db
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+          - "/bin/sh"
+          - "-c"
+          {{- if .Values.database.engine.mysql }}
+          - "/home/mlflow/scripts/init-db-mysql.sh"
+          {{- else if .Values.database.engine.postgres }}
+          - "/home/mlflow/scripts/init-db-mysql.sh"
+          {{- end }}
+        env:
+          - name: MLFLOW_DB_USER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mlflow-db-user-password
+                key: mlflow-db-password
+          - name: MLFLOW_DB_MASTER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mlflow-db-master-password
+                key: mlflow-db-master-password
+        envFrom:
+          - secretRef:
+              name: {{ tpl .Values.envFromSecret . }}
+        volumeMounts:
+          - name: scripts
+            mountPath: /home/mlflow/scripts
+          - name: {{ template "mlflow.fullname" . }}-secrets-store
+            mountPath: "/mnt/secrets-store"
+            readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "mlflow.fullname" . }}-db-scripts
+            defaultMode: 0755
+        - name: {{ template "mlflow.fullname" . }}-secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ template "mlflow.fullname" . }}-secrets
+      restartPolicy: Never
+{{- end }}

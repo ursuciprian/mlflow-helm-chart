@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mlflow.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      labels:
+        {{- include "mlflow.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "mlflow.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.database.enabled }}
+      initContainers:
+      {{-  tpl (toYaml .Values.mlflow.initContainers) . | nindent 6 }}
+      {{- end }}
+      {{- if .Values.secrets.store.enabled }}
+      volumes:
+      - name: {{ template "mlflow.fullname" . }}-secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ template "mlflow.fullname" . }}-secrets
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}-tracking-server
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --host=0.0.0.0
+            - --port=80
+          {{- if .Values.mlflowBackend.filepath }}
+            - --backend-store-uri={{ .Values.mlflowBackend.filepath }}
+          {{- else if .Values.mlflowBackend.connections }}
+            {{- if .Values.database.engine.postgres }}
+              - --backend-store-uri={{ .Values.database.engine.postgres }}://{{ required "you must specify a username for the database" .Values.mlflowBackend.connections.db_user }}:$(MLFLOW_DB_USER_PASSWORD)@{{ required "you must specify a host for the database" .Values.mlflowBackend.connections.db_host }}:{{ required "you must specify a port for the database" .Values.mlflowBackend.connections.db_port }}/{{ required "you must specify a database name" .Values.mlflowBackend.connections.db_name }}
+            {{- else if .Values.database.engine.mysql }}
+              - --backend-store-uri={{ .Values.database.engine.mysql }}://{{ required "you must specify a username for the database" .Values.mlflowBackend.connections.db_user }}:$(MLFLOW_DB_USER_PASSWORD)@{{ required "you must specify a host for the database" .Values.mlflowBackend.connections.db_host }}:{{ required "you must specify a port for the database" .Values.mlflowBackend.connections.db_port }}/{{ required "you must specify a database name" .Values.mlflowBackend.connections.db_name }}
+            {{- end }}  
+          {{- end }}
+          {{- if .Values.defaultArtifactRoot }}
+            - --default-artifact-root={{ .Values.defaultArtifactRoot }}
+          {{- end }}
+          {{- if .Values.prometheus.expose }}
+            - --expose-prometheus=yes
+          {{- end }}
+          {{- range $key, $value := .Values.extraArgs }}
+            - --{{ $key }}={{ $value }}
+          {{- end }}
+          {{- if .Values.secrets.store.enabled }}
+          env:
+            - name: MLFLOW_DB_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mlflow-db-user-password
+                  key: mlflow-db-password
+          {{- end }}
+          {{- if .Values.secrets.store.enabled }}
+          volumeMounts:
+            - name: {{ template "mlflow.fullname" . }}-secrets-store
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

@@ -1,0 +1,123 @@
+# backendStore -- Either a filepath, a database or the default value.
+database:
+  enabled: false # if set to true, you must specify your db engine : postgres or mysql
+  engine:
+    postgres: {} #psql
+    mysql: {} #mysql+pymysql
+mlflowBackend:
+  # backendStore.filepath -- A local or remote filesystem path (e.g. /mnt/persistent-disk)
+  filepath: /mnt/mlflow/metadata
+
+  # backendStore.mysql -- A map with the values for (username, password, host, port and database).
+  connections:
+    db_host: "database-host-url"
+    db_master_user: #admin
+    db_user: #mlflow
+    db_passpath: #awspathforyoursecrets
+    db_name: #databasename
+    db_port: #portnumber
+    db_passmasterpath: #yourdbmasterpath
+
+
+# defaultArtifactRoot -- A local or remote filepath (e.g. s3://my-bucket). It is mandatory when specifying a database backend store
+defaultArtifactRoot: /mnt/mlflow/artifacts # the endpoint of your s3 bucket, blob storage, etc
+
+# extraArgs -- A map of arguments and values to pass to the `mlflow server` command
+extraArgs: {
+   workers: 10,
+   expose-prometheus: "yes",
+   gunicorn-opts: "--worker-class gthread --timeout 180 --threads 4" ##A positive integer generally in the 2-4 x $(NUM_CORES) range. You’ll want to vary this a bit to find the best for your particular application’s work load.
+}
+prometheus:
+  expose: false
+
+envFromSecret: '{{ template "mlflow.fullname" . }}-env'
+mlflow:
+  initContainers:
+    - name: wait-for-mysql
+      image: busybox:latest
+      imagePullPolicy: IfNotPresent
+      envFrom:
+        - secretRef:
+            name: '{{ tpl .Values.envFromSecret . }}'
+      command: [ "/bin/sh", "-c", "until nc -zv $DB_HOST $DB_PORT -w1; do echo 'waiting for db'; sleep 1; done" ]
+      resources:
+        limits:
+          cpu: 50m
+          memory: 50Mi
+        requests:
+          cpu: 10m
+          memory: 10Mi
+
+replicaCount: 1
+
+image:
+  repository: ursuciprian/mlflow-kubernetes
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: v1
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: NodePort
+  port: 5000
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {
+    kubernetes.io/ingress.class: nginx,
+    nginx.ingress.kubernetes.il/add-base-url: "true",
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  }
+  hosts:
+    - host: chart-example.local # your host name 
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+secrets:
+  store:
+    enabled: false # If you want to enable this, make sure you have the secrets-store-csi-driver installed (working with AWS, AZURE, GC and Vault Providers). for AWS : https://docs.aws.amazon.com/secretsmanager/latest/userguide/integrating_csi_driver.html
+    provider: aws # https://secrets-store-csi-driver.sigs.k8s.io/getting-started/installation.html

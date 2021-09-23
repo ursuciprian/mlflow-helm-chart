@@ -1,0 +1,52 @@
+{{- if .Values.database.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mlflow.fullname" . }}-db-scripts
+  labels:
+    app: {{ template "mlflow.name" . }}
+    chart: {{ template "mlflow.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-10"
+data:
+{{- if .Values.database.engine.mysql }}
+  init-db-mysql.sh: |
+    #!/bin/bash
+    echo "*** create {{ .Values.mlflowBackend.connections.db_name }} database and {{ .Values.mlflowBackend.connections.db_user }} user"
+    if mysql -B --host={{ .Values.mlflowBackend.connections.db_host }} \
+            --user=admin \
+            --port={{ .Values.mlflowBackend.connections.db_port }} \
+            --password=$MLFLOW_DB_MASTER_PASSWORD \
+            --execute='CREATE DATABASE IF NOT EXISTS {{ .Values.mlflowBackend.connections.db_name }} CHARACTER SET utf8 COLLATE utf8_unicode_ci;' \
+            --execute="GRANT ALL PRIVILEGES ON {{ .Values.mlflowBackend.connections.db_name }}.* \
+                        TO '{{ .Values.mlflowBackend.connections.db_user }}'@'%' IDENTIFIED BY \"$MLFLOW_DB_USER_PASSWORD\";"
+    then
+        echo "*** {{ .Values.mlflowBackend.connections.db_name }} database and {{ .Values.mlflowBackend.connections.db_user }} user are successfully created"
+    else
+        echo "*** Database && User creation failed : Please check the logs"
+        exit 1
+    fi
+    sleep 60
+  {{- else if .Values.database.engine.postgres }}
+  init-db-postgres.sh: |
+    #!/bin/bash
+    echo "**** create Database and User"
+    export PGPASSWORD=$MLFLOW_DB_MASTER_PASSWORD;
+    if psql --host {{ .Values.mlflowBackend.connections.db_host }} \
+            --port {{ .Values.mlflowBackend.connections.db_port }} \
+            --username {{ .Values.mlflowBackend.connections.db_master_user }} \
+            --command="create database {{ .Values.mlflowBackend.connections.db_name }};" \
+            --command="create user {{ .Values.mlflowBackend.connections.db_user }};" \
+            --command="grant all privileges on database {{ .Values.mlflowBackend.connections.db_name }} to {{ .Values.mlflowBackend.connections.db_user }};"
+    then
+        echo "*** {{ .Values.mlflowBackend.connections.db_name }} database and {{ .Values.mlflowBackend.connections.db_user }} user are successfully created"
+    else
+        echo "*** Database && User creation failed : Please check the logs"
+        exit 1
+    fi
+  {{- end }}
+{{- end }}  
