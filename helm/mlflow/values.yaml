@@ -11,12 +11,12 @@ mlflowBackend:
   # backendStore.mysql -- A map with the values for (username, password, host, port and database).
   connections:
     db_host: "database-host-url"
-    db_master_user: "admin"
-    db_user: "mlflow"
-    db_passpath: rds-infra/mlflow_tracking_server
-    db_name: mlflow
-    db_port: "3306"
-    db_passmasterpath: rds-mlflow-tracking-server-dev-master-password
+    db_master_user: #admin
+    db_user: #mlflow
+    db_passpath: #awspathforyoursecrets
+    db_name: #databasename
+    db_port: #portnumber
+    db_passmasterpath: #yourdbmasterpath
 
 
 # defaultArtifactRoot -- A local or remote filepath (e.g. s3://my-bucket). It is mandatory when specifying a database backend store
@@ -87,7 +87,7 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
   }
   hosts:
-    - host: mlflow.minikube.info # your host name 
+    - host: chart-example.local # your host name 
       paths:
         - path: /
           pathType: ImplementationSpecific
