@@ -78,8 +78,8 @@ mlflowBackend:
 ## Prerequisite :
 Install Secrets Store CSI Driver on your K8s Cluster:
 
-[AWS Secrets Store CSI Driver documentation](https://docs.aws.amazon.com/secretsmanager/latest/userguide/integrating_csi_driver.html)
-[Secrets Store CSI Driver Documentation](https://secrets-store-csi-driver.sigs.k8s.io/introduction.html)
+- [AWS Secrets Store CSI Driver documentation](https://docs.aws.amazon.com/secretsmanager/latest/userguide/integrating_csi_driver.html)
+- [Secrets Store CSI Driver Documentation](https://secrets-store-csi-driver.sigs.k8s.io/introduction.html)
 
 ```bash
 helm repo add secrets-store-csi-driver https://raw.githubusercontent.com/kubernetes-sigs/secrets-store-csi-driver/master/charts
