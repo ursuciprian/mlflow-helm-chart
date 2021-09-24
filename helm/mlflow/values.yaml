@@ -7,16 +7,13 @@ database:
 mlflowBackend:
   # backendStore.filepath -- A local or remote filesystem path (e.g. /mnt/persistent-disk)
   filepath: /mnt/mlflow/metadata
-
-  # backendStore.mysql -- A map with the values for (username, password, host, port and database).
+  # Connection details for your database
   connections:
-    db_host: "database-host-url"
+    db_host: #"database-host-url"
     db_master_user: #admin
     db_user: #mlflow
-    db_passpath: #awspathforyoursecrets
     db_name: #databasename
     db_port: #portnumber
-    db_passmasterpath: #yourdbmasterpath
 
 
 # defaultArtifactRoot -- A local or remote filepath (e.g. s3://my-bucket). It is mandatory when specifying a database backend store
