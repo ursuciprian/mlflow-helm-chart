@@ -29,6 +29,6 @@ WORKDIR /home/mlflow
 
 EXPOSE 5000
 
-#USER mlflow
+USER mlflow
 
 ENTRYPOINT ["mlflow", "server"]
