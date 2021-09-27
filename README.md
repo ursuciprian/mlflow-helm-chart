@@ -25,7 +25,7 @@ helm -n mlflow_namespace upgrade mlflow helm/mlflow \
   --install \
   --atomic \
   --wait \
-  --timeout 300s \
+  --timeout 300s
 ```
 
 After the installation succeeds, you can get the Chart's status via:
