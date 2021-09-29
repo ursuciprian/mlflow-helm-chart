@@ -12,7 +12,7 @@ Current chart version is `1.0.0`
 
 To install the MLFlow chart in your Kubernetes cluster, please run the following commands: 
 
-Create the K8s namespace:
+Create the K8s namespace using the following command (or add the --create-namespace flag to helm upgrade command:
 ```bash
 kubectl create namespace mlflow
 ```
@@ -25,7 +25,8 @@ helm -n mlflow_namespace upgrade mlflow helm/mlflow \
   --install \
   --atomic \
   --wait \
-  --timeout 300s
+  --timeout 300s \
+  --create-namespace
 ```
 
 After the installation succeeds, you can get the Chart's status via:
